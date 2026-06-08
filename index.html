@@ -1083,6 +1083,11 @@
 			body > * { display: none !important; }
 			#area-cetak { display: block !important; }
 			#area-cetak { position: absolute; top: 0; left: 0; width: 100%; }
+			#bottom-nav,
+			.bottom-nav {
+				display: none !important;
+				visibility: hidden !important;
+			}
 		}
 
 		/* Styling Dokumen Cetak */
@@ -1728,9 +1733,19 @@
 					<div id="dash-alpa-list" style="max-height:300px; overflow-y:auto; padding-right:4px;"></div>
 				</div>
 
+				<!-- KLASEMEN SISWA HADIR TERBANYAK -->
+				<div class="dash-alert-table" id="dash-hadir-box" style="display:none; margin-bottom:20px;">
+					<h4><i class="fas fa-trophy" style="color:#f39c12;"></i>
+						Klasemen Siswa Kehadiran Terbaik
+						<span id="hadir-periode-label"
+							  style="font-size:10px; color:#aaa; font-weight:400; margin-left:4px;"></span>
+					</h4>
+					<div id="dash-hadir-list" style="max-height:300px; overflow-y:auto; padding-right:4px;"></div>
+				</div>
+
 				<!-- RANKING SISWA SERING TIDAK HADIR -->
 				<div class="dash-alert-table" id="dash-ranking-box" style="display:none; margin-bottom:20px;">
-					<h4><i class="fas fa-trophy"></i>
+					<h4><i class="fas fa-exclamation-triangle" style="color:#e74c3c;"></i>
 						Ranking Siswa Paling Sering Tidak Hadir
 						<span id="ranking-periode-label"
 							  style="font-size:10px; color:#aaa; font-weight:400; margin-left:4px;"></span>
@@ -1924,10 +1939,25 @@
 					</button>
 				</div>
 				<div id="data-siswa-container" style="margin-top:20px; display:none;">
+					<!-- SEARCH BOX -->
+					<div style="position:relative; margin-bottom:15px;">
+						<i class="fas fa-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#aaa; font-size:14px;"></i>
+						<input type="text" id="inp-cari-data-siswa"
+							placeholder="Cari nama atau NISN siswa..."
+							oninput="cariDataSiswa()"
+							style="width:100%; padding:10px 10px 10px 38px;
+								   border:1px solid #ddd; border-radius:10px;
+								   font-family:'Poppins',sans-serif; font-size:13px;
+								   outline:none; box-sizing:border-box;
+								   transition:border-color 0.3s;">
+						<div id="info-cari-data" style="font-size:11px; color:#aaa; margin-top:5px; text-align:right;"></div>
+					</div>
 					<table class="absen-table">
-						<thead><tr><th>NISN</th><th>Nama Siswa</th><th>Aksi Guru BK</th></tr></thead>
+						<thead><tr><th>NISN</th><th>Nama Siswa</th><th>Kelas</th><th>Aksi Guru BK</th></tr></thead>
 						<tbody id="tbody-data-siswa"></tbody>
 					</table>
+					<!-- PAGINATION -->
+					<div id="pagination-data" style="display:flex; justify-content:center; align-items:center; gap:6px; margin-top:15px; flex-wrap:wrap;"></div>
 				</div>
 			</div>
 
@@ -2418,15 +2448,15 @@
 
             const siswaKelas = dataSemuaSiswa.filter(s => s.id_kelas == idKelas);
 
-            if(siswaKelas.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Belum ada data siswa.</td></tr>`;
-                document.getElementById('tabel-siswa').style.display = 'table';
-                return;
-            }
+            // Kosongkan kartu mobile DULU sebelum cek kosong
+			const kartuWrap = document.getElementById('kartu-absen-wrap');
+			if (kartuWrap) kartuWrap.innerHTML = '';
 
-            // Kosongkan kartu mobile juga
-            const kartuWrap = document.getElementById('kartu-absen-wrap');
-            if (kartuWrap) kartuWrap.innerHTML = '';
+			if(siswaKelas.length === 0) {
+				tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Belum ada data siswa.</td></tr>`;
+				document.getElementById('tabel-siswa').style.display = 'table';
+				return;
+			}
 
             siswaKelas.forEach((siswa, index) => {
                 let rec = dataJSON.find(d => d.nisn == siswa.nisn);
@@ -2575,8 +2605,10 @@
             const namaSekolah  = dataSekolahGlobal.sekolah || 'Sekolah';
 			const ketSiswa     = document.getElementById(`ket_${nisn}`).value || '';
 			const barisKet     = ketSiswa ? `Keterangan: ${ketSiswa}\n` : '';
+			const kelasInfoWA  = dataKelas.find(k => k.id_kelas == siswa.id_kelas);
+			const namaKelasWA  = kelasInfoWA ? kelasInfoWA.nama_kelas : '-';
 
-			const defaultMsg = `Yth. Bapak/Ibu Wali Murid,\nKami dari pihak ${namaSekolah} menginformasikan bahwa ananda *${siswa.nama_siswa}* pada hari ${tglIndo} tercatat dengan status kehadiran: *${statusDipilih}*.\n${barisKet}\nMohon konfirmasi dan kerjasamanya. Terima kasih.`;
+			const defaultMsg = `Yth. Bapak/Ibu Wali Murid,\nKami dari pihak ${namaSekolah} menginformasikan bahwa ananda *${siswa.nama_siswa}* (Kelas ${namaKelasWA}) pada hari ${tglIndo} tercatat dengan status kehadiran: *${statusDipilih}*.\n${barisKet}\nMohon konfirmasi dan kerjasamanya. Terima kasih.`;
 
             Swal.fire({
                 title: 'Kirim Pesan WhatsApp',
@@ -2748,24 +2780,150 @@
         }
 
         // --- MENU DATA SISWA BK ---
-        function renderDataSiswa() {
-            const idKelas = document.getElementById('data-kelas').value;
-            const tbody = document.getElementById('tbody-data-siswa');
-            tbody.innerHTML = '';
+        // Variabel global pagination data siswa
+		let _dataSiswaFiltered = [];
+		let _halamanDataSiswa  = 1;
+		const _perHalamanData  = 10;
 
-            if(!idKelas) {
-                document.getElementById('data-siswa-container').style.display = 'none'; return;
-            }
+		function renderDataSiswa() {
+			const idKelas = document.getElementById('data-kelas').value;
 
-            const siswaKelas = dataSemuaSiswa.filter(s => s.id_kelas == idKelas);
-            siswaKelas.forEach(s => {
-                tbody.innerHTML += `<tr>
-                    <td>${s.nisn}</td><td>${s.nama_siswa}</td>
-                    <td><button class="btn btn-primary" style="padding: 5px 10px; width:auto; font-size:12px;" onclick="lihatDetailBK('${s.nisn}', '${s.nama_siswa}')"><i class="fas fa-eye"></i> Riwayat</button></td>
-                </tr>`;
-            });
-            document.getElementById('data-siswa-container').style.display = 'block';
-        }
+			if (!idKelas) {
+				document.getElementById('data-siswa-container').style.display = 'none';
+				return;
+			}
+
+			// Ambil siswa sesuai filter kelas
+			let siswaList = idKelas === 'ALL' || idKelas === ''
+				? dataSemuaSiswa
+				: dataSemuaSiswa.filter(s => s.id_kelas == idKelas);
+
+			// Urutkan A-Z
+			siswaList = siswaList.sort((a, b) => a.nama_siswa.localeCompare(b.nama_siswa));
+
+			_dataSiswaFiltered = siswaList;
+			_halamanDataSiswa  = 1;
+
+			// Reset search
+			document.getElementById('inp-cari-data-siswa').value = '';
+			document.getElementById('info-cari-data').innerText  = '';
+
+			document.getElementById('data-siswa-container').style.display = 'block';
+			renderTabelDataSiswa();
+		}
+
+		function cariDataSiswa() {
+			const keyword = document.getElementById('inp-cari-data-siswa').value.toLowerCase().trim();
+			const idKelas = document.getElementById('data-kelas').value;
+
+			let siswaList = idKelas === 'ALL' || idKelas === ''
+				? dataSemuaSiswa
+				: dataSemuaSiswa.filter(s => s.id_kelas == idKelas);
+
+			siswaList = siswaList.sort((a, b) => a.nama_siswa.localeCompare(b.nama_siswa));
+
+			if (keyword !== '') {
+				siswaList = siswaList.filter(s =>
+					s.nama_siswa.toLowerCase().includes(keyword) ||
+					String(s.nisn).includes(keyword)
+				);
+			}
+
+			_dataSiswaFiltered = siswaList;
+			_halamanDataSiswa  = 1;
+
+			document.getElementById('info-cari-data').innerText =
+				keyword ? `Ditemukan ${siswaList.length} siswa` : '';
+
+			renderTabelDataSiswa();
+		}
+
+		function renderTabelDataSiswa() {
+			const tbody  = document.getElementById('tbody-data-siswa');
+			const pagDiv = document.getElementById('pagination-data');
+			tbody.innerHTML  = '';
+			pagDiv.innerHTML = '';
+
+			const total    = _dataSiswaFiltered.length;
+			const totalHal = Math.ceil(total / _perHalamanData);
+			const mulai    = (_halamanDataSiswa - 1) * _perHalamanData;
+			const selesai  = Math.min(mulai + _perHalamanData, total);
+			const halaman  = _dataSiswaFiltered.slice(mulai, selesai);
+
+			if (total === 0) {
+				tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#aaa;">Tidak ada data siswa.</td></tr>`;
+				return;
+			}
+
+			halaman.forEach((s, idx) => {
+				const kelasInfo = dataKelas.find(k => k.id_kelas == s.id_kelas);
+				const namaKelas = kelasInfo ? kelasInfo.nama_kelas : '-';
+				tbody.innerHTML += `<tr>
+					<td>${s.nisn}</td>
+					<td>${s.nama_siswa}</td>
+					<td>${namaKelas}</td>
+					<td>
+						<button class="btn btn-primary"
+							style="padding:5px 10px; width:auto; font-size:12px;"
+							onclick="lihatDetailBK('${s.nisn}', '${s.nama_siswa}')">
+							<i class="fas fa-eye"></i> Riwayat
+						</button>
+					</td>
+				</tr>`;
+			});
+
+			// Sembunyikan pagination jika data ≤ 10
+			if (total <= _perHalamanData) return;
+
+			// Tombol Prev
+			pagDiv.innerHTML += `
+				<button onclick="gantiHalamanData(${_halamanDataSiswa - 1})"
+					${_halamanDataSiswa === 1 ? 'disabled' : ''}
+					style="padding:6px 12px; border-radius:8px; border:1px solid #ddd;
+						   background:${_halamanDataSiswa === 1 ? '#f0f0f0' : 'var(--primary)'};
+						   color:${_halamanDataSiswa === 1 ? '#aaa' : 'white'};
+						   cursor:${_halamanDataSiswa === 1 ? 'default' : 'pointer'};
+						   font-size:13px; font-weight:600;">
+					<i class="fas fa-chevron-left"></i>
+				</button>`;
+
+			// Nomor halaman
+			for (let i = 1; i <= totalHal; i++) {
+				const aktif = i === _halamanDataSiswa;
+				pagDiv.innerHTML += `
+					<button onclick="gantiHalamanData(${i})"
+						style="padding:6px 12px; border-radius:8px; border:1px solid #ddd;
+							   background:${aktif ? 'var(--primary)' : 'white'};
+							   color:${aktif ? 'white' : 'var(--text-dark)'};
+							   font-size:13px; font-weight:${aktif ? '700' : '400'};
+							   cursor:pointer; min-width:36px;">
+						${i}
+					</button>`;
+			}
+
+			// Tombol Next
+			pagDiv.innerHTML += `
+				<button onclick="gantiHalamanData(${_halamanDataSiswa + 1})"
+					${_halamanDataSiswa === totalHal ? 'disabled' : ''}
+					style="padding:6px 12px; border-radius:8px; border:1px solid #ddd;
+						   background:${_halamanDataSiswa === totalHal ? '#f0f0f0' : 'var(--primary)'};
+						   color:${_halamanDataSiswa === totalHal ? '#aaa' : 'white'};
+						   cursor:${_halamanDataSiswa === totalHal ? 'default' : 'pointer'};
+						   font-size:13px; font-weight:600;">
+					<i class="fas fa-chevron-right"></i>
+				</button>`;
+		}
+
+		function gantiHalamanData(hal) {
+			const totalHal = Math.ceil(_dataSiswaFiltered.length / _perHalamanData);
+			if (hal < 1 || hal > totalHal) return;
+			_halamanDataSiswa = hal;
+			renderTabelDataSiswa();
+
+			// Scroll ke atas tabel
+			document.getElementById('data-siswa-container')
+				.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		}
 		
 		// =========================================================================
 		// FUNGSI CETAK PDF
@@ -3422,10 +3580,12 @@
 				return;
 			}
 
-			const namaSekolah = dataSekolahGlobal.sekolah || 'Sekolah';
+			const namaSekolah  = dataSekolahGlobal.sekolah || 'Sekolah';
+			const kelasInfoAlpa = dataKelas.find(k => k.id_kelas == siswa.id_kelas);
+			const namaKelasAlpa = kelasInfoAlpa ? kelasInfoAlpa.nama_kelas : '-';
 			const defaultMsg  =
 				`Yth. Bapak/Ibu Wali Murid,\n` +
-				`Kami dari pihak *${namaSekolah}* menginformasikan bahwa ananda *${siswa.nama_siswa}* ` +
+				`Kami dari pihak *${namaSekolah}* menginformasikan bahwa ananda *${siswa.nama_siswa}* (Kelas ${namaKelasAlpa}) ` +
 				`tercatat tidak hadir tanpa keterangan *(Alpa)* sebanyak *${jumlahAlpa} hari* ` +
 				`pada periode ${periode}.\n\n` +
 				`Mohon perhatian dan kerjasamanya agar kehadiran ananda dapat ditingkatkan.\n\n` +
@@ -3742,6 +3902,61 @@
 							${s.A > 0 ? `<span class="rank-badge rb-alpa"><i class="fas fa-times"></i> Alpa ${s.A}</span>` : ''}
 							${s.I > 0 ? `<span class="rank-badge rb-izin"><i class="fas fa-file-alt"></i> Izin ${s.I}</span>` : ''}
 							${s.S > 0 ? `<span class="rank-badge rb-sakit"><i class="fas fa-notes-medical"></i> Sakit ${s.S}</span>` : ''}
+						</div>
+					</div>`;
+				}).join('');
+			}
+
+			// ============================================================
+			// KLASEMEN SISWA KEHADIRAN TERBAIK
+			// ============================================================
+			const hadirBox  = document.getElementById('dash-hadir-box');
+			const hadirList = document.getElementById('dash-hadir-list');
+			document.getElementById('hadir-periode-label').innerText = `· ${periodeLabel}`;
+
+			const klasemenHadir = siswaCek
+				.map(s => {
+					const r = rekapSiswa[s.nisn] || {H:0,I:0,S:0,A:0};
+					const tot = r.H + r.I + r.S + r.A;
+					if (tot === 0) return null;
+					const pct = Math.round((r.H / tot) * 100);
+					const kelasInfo = dataKelas.find(k => k.id_kelas == s.id_kelas);
+					return {
+						nama  : s.nama_siswa,
+						kelas : kelasInfo?.nama_kelas || '-',
+						H     : r.H,
+						tot   : tot,
+						pct   : pct
+					};
+				})
+				.filter(Boolean)
+				.sort((a, b) => b.pct - a.pct || b.H - a.H)
+				.slice(0, 10);
+
+			if (klasemenHadir.length === 0) {
+				hadirBox.style.display = 'none';
+			} else {
+				hadirBox.style.display = 'block';
+				hadirList.innerHTML = klasemenHadir.map((s, idx) => {
+					const rankCls = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : 'rank-n';
+					const warna   = s.pct >= 90 ? '#2ecc71' : s.pct >= 75 ? '#f39c12' : '#e74c3c';
+					return `
+					<div class="ranking-item">
+						<div class="ranking-nomor ${rankCls}">${idx + 1}</div>
+						<div class="ranking-info">
+							<div class="ranking-nama">${s.nama}</div>
+							<div class="ranking-kelas">
+								<i class="fas fa-door-open"></i> ${s.kelas}
+								· <span style="color:${warna}; font-weight:600;">${s.pct}% hadir</span>
+							</div>
+						</div>
+						<div class="ranking-stats">
+							<span class="rank-badge" style="background:#e8faf2; color:#2ecc71;">
+								<i class="fas fa-check"></i> ${s.H} hari
+							</span>
+							<span class="rank-badge" style="background:#f0f0f0; color:#888;">
+								dari ${s.tot} hari
+							</span>
 						</div>
 					</div>`;
 				}).join('');
