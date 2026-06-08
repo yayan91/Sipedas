@@ -1382,15 +1382,90 @@
 		.rb-izin  { background:#fef6e7; color:#f39c12; }
 		.rb-sakit { background:#e8f4fd; color:#3498db; }
 		
+		/* =============================================
+		   KOTAK PERINGATAN ALPA
+		   ============================================= */
+		.alpa-warning-box {
+			background: var(--white);
+			border-radius: 16px;
+			padding: 20px;
+			box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+			margin-bottom: 20px;
+			border-left: 5px solid #e74c3c;
+		}
+
+		.alpa-warning-box h4 {
+			color: #e74c3c;
+			margin-bottom: 15px;
+			font-size: 14px;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.alpa-item {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			padding: 10px 0;
+			border-bottom: 1px solid #f5f5f5;
+		}
+
+		.alpa-item:last-child { border-bottom: none; }
+
+		.alpa-badge {
+			background: linear-gradient(135deg, #c0392b, #e74c3c);
+			color: white;
+			font-size: 12px;
+			font-weight: 700;
+			padding: 4px 10px;
+			border-radius: 20px;
+			white-space: nowrap;
+			flex-shrink: 0;
+		}
+
+		.alpa-info { flex: 1; }
+		.alpa-nama { font-weight: 700; font-size: 13px; color: var(--text-dark); }
+		.alpa-kelas { font-size: 11px; color: #aaa; margin-top: 2px; }
+
+		.btn-wa-alpa {
+			background: #25D366;
+			color: white;
+			border: none;
+			padding: 7px 12px;
+			border-radius: 8px;
+			cursor: pointer;
+			font-size: 12px;
+			font-weight: 600;
+			display: flex;
+			align-items: center;
+			gap: 5px;
+			transition: all 0.3s;
+			flex-shrink: 0;
+		}
+
+		.btn-wa-alpa:hover {
+			background: #1ebe57;
+			transform: scale(1.05);
+		}
+
+		@media (max-width: 768px) {
+			.alpa-item {
+				flex-wrap: wrap;
+				gap: 8px;
+			}
+			.alpa-info { min-width: 150px; }
+		}
+		
     </style>
 </head>
+
+	<body>
 
 	<!-- AREA CETAK PDF — Tersembunyi, hanya muncul saat print -->
 	<div id="area-cetak">
 		<div id="konten-cetak" class="doc-cetak"></div>
 	</div>
-
-<body>
 
 	<!-- BOTTOM NAVIGATION — Mobile Only -->
 	<div class="bottom-nav" id="bottom-nav" style="display:none !important;">
@@ -1437,8 +1512,9 @@
             </div>
 
             <h2>SIPEDAS</h2>
-            <div class="login-subtitle">Sistem Pencatatan Kehadiran Siswa</div>
-            <div class="login-divider"></div>
+			<div id="login-nama-sekolah" style="color:#f39c12; font-size:13px; font-weight:700; margin-bottom:4px;">Memuat...</div>
+			<div class="login-subtitle">Sistem Pencatatan Kehadiran Siswa</div>
+			<div class="login-divider"></div>
 
             <div class="input-group">
                 <i class="fas fa-user input-icon"></i>
@@ -1641,21 +1717,31 @@
 						<canvas id="chart-donut" height="120"></canvas>
 					</div>
 				</div>
+				
+				<!-- PERINGATAN ALPA DASHBOARD -->
+				<div class="alpa-warning-box" id="dash-alpa-box" style="display:none;">
+					<h4><i class="fas fa-exclamation-triangle"></i>
+						Peringatan Alpa ≥ 3 Hari
+						<span id="dash-alpa-periode"
+							  style="font-size:10px; color:#aaa; font-weight:400; margin-left:4px;"></span>
+					</h4>
+					<div id="dash-alpa-list" style="max-height:300px; overflow-y:auto; padding-right:4px;"></div>
+				</div>
 
 				<!-- RANKING SISWA SERING TIDAK HADIR -->
 				<div class="dash-alert-table" id="dash-ranking-box" style="display:none; margin-bottom:20px;">
 					<h4><i class="fas fa-trophy"></i>
 						Ranking Siswa Paling Sering Tidak Hadir
 						<span id="ranking-periode-label"
-						      style="font-size:10px; color:#aaa; font-weight:400; margin-left:4px;"></span>
+							  style="font-size:10px; color:#aaa; font-weight:400; margin-left:4px;"></span>
 					</h4>
-					<div id="dash-ranking-list"></div>
+					<div id="dash-ranking-list" style="max-height:300px; overflow-y:auto; padding-right:4px;"></div>
 				</div>
 
 				<!-- TABEL KELAS BELUM ABSEN -->
 				<div class="dash-alert-table">
 					<h4><i class="fas fa-bell"></i> Kelas Belum Absen Hari Ini</h4>
-					<div id="dash-belum-absen-list">
+					<div id="dash-belum-absen-list" style="max-height:300px; overflow-y:auto; padding-right:4px;">
 						<div class="skeleton"></div>
 						<div class="skeleton" style="width:70%"></div>
 						<div class="skeleton" style="width:85%"></div>
@@ -1696,6 +1782,22 @@
                     <div class="summary-box box-sakit">Sakit <span id="count-sakit">0</span></div>
                     <div class="summary-box box-alpa">Alpa <span id="count-alpa">0</span></div>
                 </div>
+				
+				<!-- SEARCH BOX ABSEN -->
+				<div id="search-absen-wrap" style="display:none; margin-bottom:15px;">
+					<div style="position:relative;">
+						<i class="fas fa-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#aaa; font-size:14px;"></i>
+						<input type="text" id="inp-cari-siswa"
+							placeholder="Cari nama atau NISN siswa..."
+							oninput="cariSiswa()"
+							style="width:100%; padding:10px 10px 10px 38px;
+								   border:1px solid #ddd; border-radius:10px;
+								   font-family:'Poppins',sans-serif; font-size:13px;
+								   outline:none; box-sizing:border-box;
+								   transition: border-color 0.3s;">
+					</div>
+					<div id="info-hasil-cari" style="font-size:11px; color:#aaa; margin-top:5px; text-align:right;"></div>
+				</div>
 				
 				<!-- KARTU ABSEN — Mobile Only -->
                 <div class="kartu-siswa">
@@ -1739,7 +1841,7 @@
                     </div>
                     <div class="filter-group">
                         <label>Pilih Kelas</label>
-                        <select id="rekap-kelas"><option value="">-- Semua Kelas --</option></select>
+                        <select id="rekap-kelas"><option value="ALL">-- Semua Kelas --</option></select>
                     </div>
                 </div>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
@@ -1757,11 +1859,21 @@
 					</button>
 				</div>
                 <div id="rekap-container" style="margin-top:20px; display:none;">
-                    <table class="absen-table">
-                        <thead><tr><th>NISN</th><th>Nama Siswa</th><th>Hadir</th><th>Izin</th><th>Sakit</th><th>Alpa</th></tr></thead>
-                        <tbody id="tbody-rekap"></tbody>
-                    </table>
-                </div>
+					<table class="absen-table">
+						<thead><tr><th>NISN</th><th>Nama Siswa</th><th>Hadir</th><th>Izin</th><th>Sakit</th><th>Alpa</th></tr></thead>
+						<tbody id="tbody-rekap"></tbody>
+					</table>
+				</div>
+
+				<!-- PERINGATAN ALPA REKAP -->
+				<div class="alpa-warning-box" id="rekap-alpa-box" style="display:none; margin-top:20px;">
+					<h4><i class="fas fa-exclamation-triangle"></i>
+						Peringatan Alpa ≥ 3 Hari
+						<span id="rekap-alpa-periode"
+							  style="font-size:10px; color:#aaa; font-weight:400; margin-left:4px;"></span>
+					</h4>
+					<div id="rekap-alpa-list" style="max-height:300px; overflow-y:auto; padding-right:4px;"></div>
+				</div>
             </div>
 			
 			<!-- AREA PREVIEW CETAK -->
@@ -1921,7 +2033,7 @@
         // =========================================================================
         // PENGATURAN API BACKEND
         // =========================================================================
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwhU6ZzqYioe_sVRSwssF3jnQL8rZgvKeBYFVf56p_Ga1i5S3pbUI6uQASl--o2opcY/exec'; 
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxpj17CywyIiZqtFz8R8BnpsKpdxLeVRyfKu1-puOwceQhcGUT0q81jVxypEaSs-gZD/exec'; 
 
         // VARIABEL GLOBAL UNTUK MENAMPUNG DATA
         let dataTahunAjar = [];
@@ -1967,18 +2079,37 @@
         }
 
         async function fetchBackend(action, payload = {}) {
-            payload.action = action;
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    body: JSON.stringify(payload)
-                });
-                return await response.json();
-            } catch (error) {
-                console.error('Error connecting to backend:', error);
-                return { success: false, message: "Gagal terhubung ke server." };
-            }
-        }
+			payload.action = action;
+			// Sertakan token di setiap request (kecuali login & setup)
+			if (action !== 'login' && action !== 'setup' && userAktif.token) {
+				payload.token = userAktif.token;
+			}
+			// Tandai request dari tamu
+			if (userAktif.Role && userAktif.Role.toLowerCase() === 'tamu') {
+				payload.guest = true;
+			}
+
+			// Timeout 15 detik agar UI tidak freeze jika server GAS lambat
+			const controller = new AbortController();
+			const timeout = setTimeout(() => controller.abort(), 15000);
+
+			try {
+				const response = await fetch(API_URL, {
+					method: 'POST',
+					body: JSON.stringify(payload),
+					signal: controller.signal
+				});
+				clearTimeout(timeout);
+				return await response.json();
+			} catch (error) {
+				clearTimeout(timeout);
+				if (error.name === 'AbortError') {
+					return { success: false, message: "Server tidak merespons (timeout 15 detik). Coba lagi." };
+				}
+				console.error('Error connecting to backend:', error);
+				return { success: false, message: "Gagal terhubung ke server." };
+			}
+		}
 
         function showLoader(text = "Memproses...") {
             document.querySelector('#global-loader h3').innerText = text;
@@ -1995,26 +2126,40 @@
                 return;
             }
 
-            showLoader("Menarik Konfigurasi Sekolah...");
-            const res = await fetchBackend('read', { sheetName: 'Sekolah' });
-            hideLoader();
-
-            if (res.success && res.data.length > 0) {
-				dataSekolahGlobal = res.data[0];
-				const logoLink = dataSekolahGlobal['logo_kanan'];
-				if (logoLink) {
-					document.getElementById('logo-sekolah').src = logoLink;
-				}
-			}
-            
-            // Set default date ke hari ini (FIX: pakai format string lokal, bukan UTC)
-            const today = new Date();
+            // Set default date & tahun footer
+			const today = new Date();
 			const yyyy = today.getFullYear();
 			const mm = String(today.getMonth() + 1).padStart(2, '0');
 			const dd = String(today.getDate()).padStart(2, '0');
 			document.getElementById('inp-tanggal').value = `${yyyy}-${mm}-${dd}`;
-			// Set tahun footer otomatis
-            document.getElementById('footer-tahun').innerText = new Date().getFullYear();
+			document.getElementById('footer-tahun').innerText = yyyy;
+
+			// Fetch data sekolah langsung dari server setiap buka halaman
+			showLoader("Menarik Konfigurasi Sekolah...");
+			const res = await fetchBackend('read', { sheetName: 'Sekolah' });
+			hideLoader();
+
+			if (res.success && res.data.length > 0) {
+				dataSekolahGlobal = res.data[0];
+
+				// Tampilkan logo
+				const logoLink = dataSekolahGlobal['logo_kanan'];
+				if (logoLink) {
+					document.getElementById('logo-sekolah').src = logoLink;
+				}
+
+				// Tampilkan nama sekolah
+				const namaSekolah = dataSekolahGlobal['sekolah'];
+				if (namaSekolah) {
+					document.getElementById('login-nama-sekolah').innerText = namaSekolah;
+				} else {
+					document.getElementById('login-nama-sekolah').innerText = '';
+				}
+
+			} else {
+				// Jika gagal ambil data, kosongkan tulisan Memuat...
+				document.getElementById('login-nama-sekolah').innerText = '';
+			}
         };
 
         // --- SISTEM LOGIN ---
@@ -2028,30 +2173,24 @@
             }
 
             showLoader("Tunggu Yah...");
-            const res = await fetchBackend('read', { sheetName: 'Petugas' });
-            hideLoader();
+			const res = await fetchBackend('login', { username: user, password: pass });
+			hideLoader();
 
-            if (res.success) {
-                const petugasData = res.data;
-                const foundUser = petugasData.find(p => p.username == user && p.password == pass);
-
-                if (foundUser) {
-                    userAktif = foundUser; 
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Login Berhasil',
-                        text: `Selamat datang kembali, ${foundUser.nama_petugas}!`,
-                        showConfirmButton: false,
-                        timer: 1500
-                    }).then(() => {
-                        masukAplikasi(foundUser);
-                    });
-                } else {
-                    Swal.fire({ icon: 'error', title: 'Gagal', text: 'Username atau Password salah!' });
-                }
-            } else {
-                Swal.fire({ icon: 'error', title: 'Gagal', text: 'Tidak dapat mengambil data dari database.' });
-            }
+			if (res.success && res.data.length > 0) {
+				const foundUser = res.data[0];
+				userAktif = foundUser; // Sudah berisi token, tanpa password
+				Swal.fire({
+					icon: 'success',
+					title: 'Login Berhasil',
+					text: `Selamat datang kembali, ${foundUser.nama_petugas}!`,
+					showConfirmButton: false,
+					timer: 1500
+				}).then(() => {
+					masukAplikasi(foundUser);
+				});
+			} else {
+				Swal.fire({ icon: 'error', title: 'Gagal', text: res.message || 'Username atau Password salah!' });
+			}
         }
 
         function loginGuest() {
@@ -2097,8 +2236,19 @@
 
         // --- MANAJEMEN ANTARMUKA ---
         function masukAplikasi(userData) {
+            // Tampilkan bottom nav jika layar HP
+            if (window.innerWidth <= 768) {
+                document.getElementById('bottom-nav').style.cssText = 'display:flex !important';
+            }
+
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('dashboard-screen').style.display = 'flex';
+
+            // Sync logo sidebar dari data sekolah yang sudah diambil saat login screen
+			if (dataSekolahGlobal['logo_kanan']) {
+				const sidebarLogo = document.getElementById('sidebar-logo');
+				if (sidebarLogo) sidebarLogo.src = dataSekolahGlobal['logo_kanan'];
+			}
 
             // Update sidebar nama & role
             const namaLengkap = userData.nama_petugas || 'Pengguna';
@@ -2124,29 +2274,42 @@
             const navData = document.getElementById('nav-data');
 
             if (role === 'tamu') {
-                navAbsen.style.display = 'none';
-                navData.style.display = 'none';
-                switchMenu('menu-rekap', document.querySelector('.sidebar-menu li:nth-child(3)'));
-            } else {
-                navAbsen.style.display = 'flex';
-                navData.style.display = 'flex';
-                switchMenu('menu-dashboard', document.querySelector('.sidebar-menu li:nth-child(1)'));
-                inisialisasiDataAbsen();
-            }
+				navAbsen.style.display = 'none';
+				navData.style.display = 'none';
+				// Sembunyikan bottom nav absen & data untuk tamu
+				const bnavAbsen = document.getElementById('bnav-absen');
+				const bnavData  = document.getElementById('bnav-data');
+				if (bnavAbsen) bnavAbsen.style.display = 'none';
+				if (bnavData)  bnavData.style.display  = 'none';
+				inisialisasiDataAbsen(); // Tetap load data untuk tamu
+				switchMenu('menu-rekap', document.querySelector('.sidebar-menu li:nth-child(3)'));
+			} else {
+				navAbsen.style.display = 'flex';
+				navData.style.display = 'flex';
+				// Reset bottom nav agar tampil semua untuk non-tamu
+				const bnavAbsen = document.getElementById('bnav-absen');
+				const bnavData  = document.getElementById('bnav-data');
+				if (bnavAbsen) bnavAbsen.style.display = '';
+				if (bnavData)  bnavData.style.display  = '';
+				switchMenu('menu-dashboard', document.querySelector('.sidebar-menu li:nth-child(1)'));
+				inisialisasiDataAbsen();
+			}
         }
 
         function switchMenu(menuId, element) {
-            const items = document.querySelectorAll('.sidebar-menu li');
-            items.forEach(item => item.classList.remove('active'));
-            if(element) element.classList.add('active');
+			const items = document.querySelectorAll('.sidebar-menu li');
+			items.forEach(item => item.classList.remove('active'));
+			if(element) element.classList.add('active');
 
-            const panels = document.querySelectorAll('.panel');
-            panels.forEach(panel => panel.classList.remove('active'));
-            document.getElementById(menuId).classList.add('active');
+			const panels = document.querySelectorAll('.panel');
+			panels.forEach(panel => panel.classList.remove('active'));
+			document.getElementById(menuId).classList.add('active');
 
-            // Refresh dashboard setiap kali dibuka
-            if (menuId === 'menu-dashboard') refreshDashboard();
-        }
+			// Refresh dashboard hanya jika data sudah siap
+			if (menuId === 'menu-dashboard' && dataSemuaSiswa.length > 0) {
+				refreshDashboard();
+			}
+		}
 
         function togglePass() {
             const passInput = document.getElementById('password');
@@ -2178,10 +2341,12 @@
             showLoader("Menyiapkan Data Anda...");
             
             // Tarik 4 data sekaligus
-            const resTA = await fetchBackend('read', { sheetName: 'Tahun_Ajar' });
-            const resKelas = await fetchBackend('read', { sheetName: 'Kelas' });
-            const resSiswa = await fetchBackend('read', { sheetName: 'Siswa' });
-            const resAbsen = await fetchBackend('read', { sheetName: 'Absen' });
+           const [resTA, resKelas, resSiswa, resAbsen] = await Promise.all([
+				fetchBackend('read', { sheetName: 'Tahun_Ajar' }),
+				fetchBackend('read', { sheetName: 'Kelas' }),
+				fetchBackend('read', { sheetName: 'Siswa' }),
+				fetchBackend('read', { sheetName: 'Absen' })
+			]);
             
             hideLoader();
 
@@ -2223,10 +2388,13 @@
             const inputWali = document.getElementById('inp-wali');
             
             tbody.innerHTML = '';
-            document.getElementById('summary-absen').style.display = 'none';
-            document.getElementById('tabel-siswa').style.display = 'none';
-            document.getElementById('btn-simpan-absen').style.display = 'none';
-            inputWali.value = '-';
+			document.getElementById('summary-absen').style.display = 'none';
+			document.getElementById('tabel-siswa').style.display = 'none';
+			document.getElementById('btn-simpan-absen').style.display = 'none';
+			document.getElementById('search-absen-wrap').style.display = 'none';
+			document.getElementById('inp-cari-siswa').value = '';
+			document.getElementById('info-hasil-cari').innerText = '';
+			inputWali.value = '-';
 
             if(!idKelas || !tgl) return;
 
@@ -2345,9 +2513,10 @@
             tbody.insertBefore(infoTabelRow, tbody.firstChild);
 
             document.getElementById('summary-absen').style.display = 'flex';
-            document.getElementById('tabel-siswa').style.display = 'table';
-            document.getElementById('btn-simpan-absen').style.display = 'inline-block';
-            hitungRekap();
+			document.getElementById('tabel-siswa').style.display = 'table';
+			document.getElementById('btn-simpan-absen').style.display = 'inline-block';
+			document.getElementById('search-absen-wrap').style.display = 'block';
+			hitungRekap();
         }
 
         function hitungRekap() {
@@ -2438,6 +2607,12 @@
         }
 
         async function simpanAbsen() {
+            // ✅ Guard role — pastikan bukan tamu dan sudah login
+            if (!userAktif.token || userAktif.Role?.toLowerCase() === 'tamu') {
+                Swal.fire('Akses Ditolak', 'Anda tidak punya izin untuk aksi ini.', 'error');
+                return;
+            }
+
             const taValue = document.getElementById('sel-tahun-ajar').value;
             const tgl = document.getElementById('inp-tanggal').value;
             const idKelas = document.getElementById('sel-kelas').value;
@@ -2490,18 +2665,21 @@
                 req = { sheetName: 'Absen', idColumnIndex: 0, idValue: absenAda.id_absen, newData: payload };
             }
 
-            const response = await fetchBackend(action, req);
-
-            if(response.success) {
-                Swal.fire('Berhasil!', 'Absensi tersimpan kilat dalam 1 detik.', 'success');
-                fetchBackend('read', { sheetName: 'Absen' }).then(res => { 
-                    if(res.success) {
-                        dataSemuaAbsen = res.data;
-                        renderSiswa(); // Render ulang agar UI kembali fresh
-                    }
-                });
-            } else {
-                Swal.fire('Gagal', 'Terjadi kesalahan sistem.', 'error');
+            try {
+                const response = await fetchBackend(action, req);
+                if(response.success) {
+                    Swal.fire('Berhasil!', 'Absensi tersimpan di database.', 'success');
+                    fetchBackend('read', { sheetName: 'Absen' }).then(res => { 
+                        if(res.success) {
+                            dataSemuaAbsen = res.data;
+                            renderSiswa(); // Render ulang agar UI kembali fresh
+                        }
+                    });
+                } else {
+                    Swal.fire('Gagal', response.message || 'Terjadi kesalahan sistem.', 'error');
+                }
+            } catch(err) {
+                Swal.fire('Gagal', 'Koneksi terputus saat menyimpan. Coba lagi.', 'error');
             }
         }
 
@@ -2562,6 +2740,9 @@
                 </tr>`;
             });
             document.getElementById('rekap-container').style.display = 'block';
+
+			// Tampilkan peringatan alpa di rekap
+			tampilkanPeringatanAlpa(rekapMap, `${tglMulai} s/d ${tglAkhir}`, 'rekap-alpa-box', 'rekap-alpa-list', 'rekap-alpa-periode');
         }
 
         // --- MENU DATA SISWA BK ---
@@ -2582,54 +2763,6 @@
                 </tr>`;
             });
             document.getElementById('data-siswa-container').style.display = 'block';
-        }
-
-        function lihatDetailBK(nisn, nama) {
-            const taFilter = document.getElementById('data-ta').value;
-            // Ambil filter semester (PR No. 3) - Pastikan Anda sudah menambah elemen HTML-nya
-            const smtFilterElem = document.getElementById('data-semester');
-            const smtFilter = smtFilterElem ? smtFilterElem.value : 'ALL';
-
-            let h = 0, i = 0, s = 0, a = 0;
-
-            dataSemuaAbsen.forEach(row => {
-                if(row.nisn === 'JSON_DATA') {
-                    // Cek Filter Tahun Ajar
-                    if(taFilter === 'ALL' || row.id_tahun_ajar == taFilter) {
-                        // Cek Filter Semester
-                        if(smtFilter === 'ALL' || row.semester === smtFilter) {
-                            let jsonData = JSON.parse(row.status);
-                            let rec = jsonData.find(d => d.nisn == nisn);
-                            if(rec) {
-                                if(rec.status === 'Hadir') h++;
-                                if(rec.status === 'Izin') i++;
-                                if(rec.status === 'Sakit') s++;
-                                if(rec.status === 'Alpa') a++;
-                            }
-                        }
-                    }
-                }
-            });
-
-            let filterTextInfo = taFilter === 'ALL' ? 'Semua Tahun' : taFilter;
-            if(smtFilter !== 'ALL') filterTextInfo += ` (Semester ${smtFilter})`;
-
-            Swal.fire({
-                title: 'Data Siswa (BK)',
-                html: `
-                    <div style="text-align:left; font-size:14px; background:#f4f7fb; padding:15px; border-radius:10px;">
-                        <b>Nama:</b> ${nama} <br>
-                        <b>NISN:</b> ${nisn} <br>
-                        <hr style="margin:10px 0; border:0; border-top:1px solid #ddd;">
-                        <b>Filter Analisis:</b> ${filterTextInfo}<br><br>
-                        <span style="color:#2ecc71;">■ Hadir: ${h} Hari</span><br>
-                        <span style="color:#f39c12;">■ Izin: ${i} Hari</span><br>
-                        <span style="color:#3498db;">■ Sakit: ${s} Hari</span><br>
-                        <span style="color:#e74c3c;">■ Alpa: ${a} Hari</span>
-                    </div>
-                `,
-                confirmButtonColor: 'var(--primary)'
-            });
         }
 		
 		// =========================================================================
@@ -3003,9 +3136,13 @@
 				Swal.fire('Info', 'Tidak ada siswa di kelas ini.', 'info'); return;
 			}
 
-			const opsiSiswa = siswaPilihan.map(s =>
-				`<option value="${s.nisn}">${s.nama_siswa} (${s.nisn})</option>`
-			).join('');
+			const opsiSiswa = siswaPilihan
+			.sort((a, b) => a.nama_siswa.localeCompare(b.nama_siswa))
+			.map(s => {
+				const kls = dataKelas.find(k => k.id_kelas == s.id_kelas);
+				const namaKls = kls ? ` — ${kls.nama_kelas}` : '';
+				return `<option value="${s.nisn}">${s.nama_siswa}${namaKls} (${s.nisn})</option>`;
+			}).join('');
 
 			const { value: nisnDipilih } = await Swal.fire({
 				title: 'Pilih Siswa',
@@ -3130,14 +3267,7 @@
 			}
 		}
 
-		// Tampilkan bottom nav saat masuk aplikasi
-		const _masukAplikasiAsli = masukAplikasi;
-		masukAplikasi = function(userData) {
-			_masukAplikasiAsli(userData);
-			if (window.innerWidth <= 768) {
-				document.getElementById('bottom-nav').style.cssText = 'display:flex !important';
-			}
-		}
+		// (Blok ini dihapus — logikanya dipindah langsung ke fungsi masukAplikasi)
 
 		window.addEventListener('resize', () => {
 			const bnav = document.getElementById('bottom-nav');
@@ -3159,6 +3289,8 @@
 		function animasiCounter(elId, targetVal, durasi = 1000) {
 			const el = document.getElementById(elId);
 			if (!el) return;
+			// Jika nilai 0, langsung tampilkan tanpa animasi
+			if (targetVal === 0) { el.innerText = 0; return; }
 			let start = 0;
 			const step = Math.ceil(targetVal / (durasi / 30));
 			const timer = setInterval(() => {
@@ -3213,6 +3345,126 @@
 			}
 
 			refreshDashboard(idKelas, tglMulai, tglAkhir);
+		}
+		
+		// =========================================================================
+		// FUNGSI PERINGATAN ALPA
+		// =========================================================================
+		function tampilkanPeringatanAlpa(rekapSiswa, periodeLabel, boxId, listId, periodeId) {
+			const box    = document.getElementById(boxId);
+			const list   = document.getElementById(listId);
+			const periode = document.getElementById(periodeId);
+
+			if (!box || !list) return;
+
+			// Kumpulkan siswa dengan alpa >= 3
+			const siswaAlpa = dataSemuaSiswa
+				.map(s => {
+					const r = rekapSiswa[s.nisn];
+					if (!r || r.A < 3) return null;
+					const kelasInfo = dataKelas.find(k => k.id_kelas == s.id_kelas);
+					return {
+						nisn      : s.nisn,
+						nama      : s.nama_siswa,
+						kelas     : kelasInfo?.nama_kelas || '-',
+						alpa      : r.A,
+						hp_wali   : s.hp_wali   || '',
+						hp_ayah   : s.hp_ayah   || '',
+						hp_ibu    : s.hp_ibu    || '',
+						hp_siswa  : s.hp_siswa  || ''
+					};
+				})
+				.filter(Boolean)
+				.sort((a, b) => b.alpa - a.alpa);
+
+			if (siswaAlpa.length === 0) {
+				box.style.display = 'none';
+				return;
+			}
+
+			if (periode) periode.innerText = `· ${periodeLabel}`;
+			box.style.display = 'block';
+
+			list.innerHTML = siswaAlpa.map(s => `
+				<div class="alpa-item">
+					<div class="alpa-info">
+						<div class="alpa-nama">${s.nama}</div>
+						<div class="alpa-kelas">
+							<i class="fas fa-door-open"></i> ${s.kelas}
+						</div>
+					</div>
+					<span class="alpa-badge">
+						<i class="fas fa-times-circle"></i> Alpa ${s.alpa}x
+					</span>
+					${userAktif.Role && userAktif.Role.toLowerCase() !== 'tamu' ? `
+					<button class="btn-wa-alpa" onclick="kirimWAAlpa('${s.nisn}', ${s.alpa}, '${periodeLabel}')">
+						<i class="fab fa-whatsapp"></i> WA
+					</button>` : ''}
+				</div>
+			`).join('');
+		}
+
+		function kirimWAAlpa(nisn, jumlahAlpa, periode) {
+			const siswa = dataSemuaSiswa.find(s => s.nisn == nisn);
+			if (!siswa) return;
+
+			// Bangun opsi nomor HP
+			let opsiNomor = '';
+			if (siswa.hp_wali)  opsiNomor += `<option value="${siswa.hp_wali}">Wali (${siswa.hp_wali})</option>`;
+			if (siswa.hp_ayah)  opsiNomor += `<option value="${siswa.hp_ayah}">Ayah (${siswa.hp_ayah})</option>`;
+			if (siswa.hp_ibu)   opsiNomor += `<option value="${siswa.hp_ibu}">Ibu (${siswa.hp_ibu})</option>`;
+			if (siswa.hp_siswa) opsiNomor += `<option value="${siswa.hp_siswa}">Siswa (${siswa.hp_siswa})</option>`;
+
+			if (!opsiNomor) {
+				Swal.fire('Oops', 'Tidak ada data nomor HP keluarga di database.', 'warning');
+				return;
+			}
+
+			const namaSekolah = dataSekolahGlobal.sekolah || 'Sekolah';
+			const defaultMsg  =
+				`Yth. Bapak/Ibu Wali Murid,\n` +
+				`Kami dari pihak *${namaSekolah}* menginformasikan bahwa ananda *${siswa.nama_siswa}* ` +
+				`tercatat tidak hadir tanpa keterangan *(Alpa)* sebanyak *${jumlahAlpa} hari* ` +
+				`pada periode ${periode}.\n\n` +
+				`Mohon perhatian dan kerjasamanya agar kehadiran ananda dapat ditingkatkan.\n\n` +
+				`Terima kasih. 🙏`;
+
+			Swal.fire({
+				title: 'Kirim Peringatan WhatsApp',
+				html: `
+					<div style="text-align:left; font-size:14px; margin-bottom:10px;">
+						<b>Siswa:</b> ${siswa.nama_siswa}<br>
+						<b>Jumlah Alpa:</b> <span style="color:#e74c3c; font-weight:700;">${jumlahAlpa} hari</span>
+					</div>
+					<div style="text-align:left; font-size:14px; margin-bottom:10px;">
+						<label><b>Pilih Nomor Tujuan:</b></label><br>
+						<select id="pilih-nomor-wa-alpa"
+							style="width:100%; padding:8px; margin-top:5px;
+								   border-radius:5px; border:1px solid #ccc;">
+							${opsiNomor}
+						</select>
+					</div>
+					<textarea id="pesan-wa-alpa"
+						style="width:100%; height:140px; padding:10px;
+							   border-radius:5px; border:1px solid #ccc;
+							   font-family:inherit; font-size:13px;">${defaultMsg}</textarea>
+				`,
+				showCancelButton: true,
+				confirmButtonColor: '#25D366',
+				cancelButtonColor : '#d33',
+				confirmButtonText : '<i class="fab fa-whatsapp"></i> Kirim via WA',
+				cancelButtonText  : 'Batal',
+			}).then(result => {
+				if (result.isConfirmed) {
+					let targetNo   = document.getElementById('pilih-nomor-wa-alpa').value;
+					let finalPesan = document.getElementById('pesan-wa-alpa').value;
+
+					targetNo = targetNo.replace(/^0+/, '');
+					if (!targetNo.startsWith('62')) targetNo = '62' + targetNo;
+
+					window.open(`https://wa.me/${targetNo}?text=${encodeURIComponent(finalPesan)}`, '_blank');
+				}
+			});
 		}
 
 		function refreshDashboard(filterKelas, filterMulai, filterAkhir) {
@@ -3280,11 +3532,12 @@
 						<i class="fas fa-exclamation-circle" style="color:#e74c3c;"></i>
 						<span style="font-weight:600;">${k.nama_kelas}</span>
 						<span style="font-size:12px; color:#aaa;">Wali: ${k.nama_wali_kelas || '-'}</span>
+						${userAktif.Role && userAktif.Role.toLowerCase() !== 'tamu' ? `
 						<button onclick="langkahAbsenKelas('${k.id_kelas}')"
 							style="margin-left:auto; background:var(--primary); color:white; border:none;
 								   padding:5px 12px; border-radius:8px; font-size:11px; cursor:pointer;">
 							Input Absen
-						</button>
+						</button>` : ''}
 					</div>`).join('');
 			}
 
@@ -3492,6 +3745,9 @@
 				}).join('');
 			}
 
+			// Tampilkan peringatan alpa di dashboard
+			tampilkanPeringatanAlpa(rekapSiswa, periodeLabel, 'dash-alpa-box', 'dash-alpa-list', 'dash-alpa-periode');
+
 			updateTimestamp();
 		}
 		
@@ -3604,6 +3860,47 @@
             const kartuInput = document.getElementById(`ket_kartu_${nisn}`);
             if (kartuInput) kartuInput.value = val;
         }
+		
+		// =========================================================================
+		// FUNGSI PENCARIAN SISWA DI MENU ABSEN
+		// =========================================================================
+		function cariSiswa() {
+			const keyword = document.getElementById('inp-cari-siswa').value.toLowerCase().trim();
+
+			// --- DESKTOP: Filter baris tabel ---
+			const semuaBaris = document.querySelectorAll('#tbody-siswa tr');
+			let ketemu = 0;
+			semuaBaris.forEach(tr => {
+				// Lewati baris info tanggal (tidak punya radio button)
+				if (!tr.querySelector('input[type="radio"]')) return;
+				const teks = tr.innerText.toLowerCase();
+				if (teks.includes(keyword)) {
+					tr.style.display = '';
+					ketemu++;
+				} else {
+					tr.style.display = 'none';
+				}
+			});
+
+			// --- MOBILE: Filter kartu ---
+			const semuaKartu = document.querySelectorAll('#kartu-absen-wrap .kartu-absen');
+			semuaKartu.forEach(kartu => {
+				const teks = kartu.innerText.toLowerCase();
+				if (teks.includes(keyword)) {
+					kartu.style.display = '';
+				} else {
+					kartu.style.display = 'none';
+				}
+			});
+
+			// Tampilkan info hasil pencarian
+			const infoEl = document.getElementById('info-hasil-cari');
+			if (keyword === '') {
+				infoEl.innerText = '';
+			} else {
+				infoEl.innerText = `Ditemukan ${ketemu} siswa`;
+			}
+		}
 
         // Sinkron status dari tabel ke kartu (saat radio di desktop diubah)
         function sinkronKartu(nisn) {
