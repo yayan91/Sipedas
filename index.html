@@ -1895,26 +1895,41 @@
 			<div id="isi-preview"></div>
 			</div>
 
-            <!-- PANEL DATA SISWA -->
-            <div id="menu-data" class="panel">
-                <h2><i class="fas fa-users"></i> Data Induk & Riwayat Siswa</h2>
-                <div class="filter-container">
-                    <div class="filter-group">
-                        <label>Pilih Kelas</label>
-                        <select id="data-kelas" onchange="renderDataSiswa()"><option value="">-- Pilih Kelas --</option></select>
-                    </div>
-                    <div class="filter-group">
-                        <label>Tahun Ajar</label>
-                        <select id="data-ta"><option value="ALL">-- Semua Tahun Ajar --</option></select>
-                    </div>
-                </div>
-                <div id="data-siswa-container" style="margin-top:20px; display:none;">
-                    <table class="absen-table">
-                        <thead><tr><th>NISN</th><th>Nama Siswa</th><th>Aksi Guru BK</th></tr></thead>
-                        <tbody id="tbody-data-siswa"></tbody>
-                    </table>
-                </div>
-            </div>
+           <!-- PANEL DATA SISWA -->
+			<div id="menu-data" class="panel">
+				<h2><i class="fas fa-users"></i> Data Induk & Riwayat Siswa</h2>
+				<div class="filter-container" style="grid-template-columns: 1fr 1fr;">
+					<div class="filter-group">
+						<label>Pilih Kelas</label>
+						<select id="data-kelas">
+							<option value="">-- Pilih Kelas --</option>
+						</select>
+					</div>
+					<div class="filter-group">
+						<label>Tahun Ajar & Semester</label>
+						<select id="data-ta">
+							<option value="ALL">-- Semua Tahun Ajar & Semester --</option>
+						</select>
+					</div>
+				</div>
+				<div style="margin-bottom:20px;">
+					<button onclick="renderDataSiswa()"
+						style="background:linear-gradient(135deg,var(--primary),var(--secondary));
+							   color:white; border:none; padding:10px 28px; border-radius:10px;
+							   font-weight:700; font-size:13px; cursor:pointer;
+							   box-shadow:0 4px 12px rgba(30,60,114,0.3);
+							   display:inline-flex; align-items:center; gap:8px;
+							   transition:all 0.3s;">
+						<i class="fas fa-search"></i> Tampilkan Data
+					</button>
+				</div>
+				<div id="data-siswa-container" style="margin-top:20px; display:none;">
+					<table class="absen-table">
+						<thead><tr><th>NISN</th><th>Nama Siswa</th><th>Aksi Guru BK</th></tr></thead>
+						<tbody id="tbody-data-siswa"></tbody>
+					</table>
+				</div>
+			</div>
 
             <!-- PANEL TENTANG -->
             <div id="menu-tentang" class="panel" style="padding: 0; overflow: hidden;">
@@ -2330,15 +2345,28 @@
 			if(resAbsen.success) dataSemuaAbsen = resAbsen.data;
 
             const selTA = document.getElementById('sel-tahun-ajar');
-            const dataTA = document.getElementById('data-ta');
-            selTA.innerHTML = '<option value="">-- Pilih Tahun Ajar --</option>';
-            dataTA.innerHTML = '<option value="ALL">-- Semua Tahun Ajar --</option>';
+			const dataTA = document.getElementById('data-ta');
+			selTA.innerHTML = '<option value="">-- Pilih Tahun Ajar --</option>';
+			dataTA.innerHTML = '<option value="ALL">-- Semua Tahun Ajar & Semester --</option>';
 
-            dataTahunAjar.forEach(ta => {
-                let isAktif = (ta.status_aktif && ta.status_aktif.toLowerCase() === 'aktif') ? 'selected' : '';
-                selTA.innerHTML += `<option value="${ta.id_tahun_ajar}|${ta.semester}" ${isAktif}>${ta.tahun_ajaran} - Semester ${ta.semester}</option>`;
-                dataTA.innerHTML += `<option value="${ta.id_tahun_ajar}">${ta.tahun_ajaran}</option>`;
-            });
+			// Isi sel-tahun-ajar (menu absen) — tidak berubah
+			dataTahunAjar.forEach(ta => {
+				let isAktif = (ta.status_aktif && ta.status_aktif.toLowerCase() === 'aktif') ? 'selected' : '';
+				selTA.innerHTML += `<option value="${ta.id_tahun_ajar}|${ta.semester}" ${isAktif}>${ta.tahun_ajaran} - Semester ${ta.semester}</option>`;
+			});
+
+			// Isi data-ta (panel Data Siswa) — grouping per tahun unik
+			const tahunUnik = [...new Set(dataTahunAjar.map(ta => ta.tahun_ajaran))];
+			tahunUnik.forEach(tahun => {
+				// Opsi Semua Semester untuk tahun ini — value pakai prefix TAHUN§
+				dataTA.innerHTML += `<option value="TAHUN§${tahun}">${tahun} - Semua Semester</option>`;
+				// Opsi per semester — value pakai prefix SEMESTER§id
+				dataTahunAjar
+					.filter(ta => ta.tahun_ajaran === tahun)
+					.forEach(ta => {
+						dataTA.innerHTML += `<option value="SEMESTER§${ta.id_tahun_ajar}">${tahun} - Semester ${ta.semester}</option>`;
+					});
+			});
 
             const selKelas = document.getElementById('sel-kelas');
             selKelas.innerHTML = '<option value="">-- Pilih Kelas --</option>';
@@ -3883,42 +3911,63 @@
         }
 
         // =========================================================================
-        // MODAL RIWAYAT SISWA BK — MEWAH
-        // =========================================================================
-        function lihatDetailBK(nisn, nama) {
-            const taFilter  = document.getElementById('data-ta').value;
-            const smtFilterElem = document.getElementById('data-semester');
-            const smtFilter = smtFilterElem ? smtFilterElem.value : 'ALL';
+		// MODAL RIWAYAT SISWA BK — MEWAH
+		// =========================================================================
+		function lihatDetailBK(nisn, nama) {
+			const taValue = document.getElementById('data-ta').value;
 
-            let h = 0, i = 0, s = 0, a = 0;
+			// Tentukan array id_tahun_ajar yang lolos filter & label teks
+			let idYangLolos = []; // kosong = ALL (tidak filter)
+			let filterTeks  = 'Semua Tahun Ajar & Semester';
 
-            dataSemuaAbsen.forEach(row => {
-                if (row.nisn !== 'JSON_DATA') return;
-                if (taFilter !== 'ALL' && row.id_tahun_ajar != taFilter) return;
-                if (smtFilter !== 'ALL' && row.semester !== smtFilter) return;
-                try {
-                    const rec = JSON.parse(row.status).find(d => d.nisn == nisn);
-                    if (rec) {
-                        if (rec.status === 'Hadir') h++;
-                        if (rec.status === 'Izin')  i++;
-                        if (rec.status === 'Sakit') s++;
-                        if (rec.status === 'Alpa')  a++;
-                    }
-                } catch(e) {}
-            });
+			if (taValue !== 'ALL') {
+				const [prefix, isi] = taValue.split('§');
 
-            const total    = h + i + s + a;
-            const pctHadir = total ? Math.round((h / total) * 100) : 0;
-            const warnaPct = pctHadir >= 80 ? '#2ecc71' : pctHadir >= 60 ? '#f39c12' : '#e74c3c';
+				if (prefix === 'TAHUN') {
+					// Semua semester dalam tahun ini
+					idYangLolos = dataTahunAjar
+						.filter(ta => ta.tahun_ajaran === isi)
+						.map(ta => ta.id_tahun_ajar);
+					filterTeks = `${isi} · Semua Semester`;
 
-            const siswaData  = dataSemuaSiswa.find(x => x.nisn == nisn);
-            const kelasInfo  = siswaData ? dataKelas.find(k => k.id_kelas == siswaData.id_kelas) : null;
-            const namaKelas  = kelasInfo ? kelasInfo.nama_kelas : '-';
-            const kelamin    = siswaData?.kelamin || '-';
+				} else if (prefix === 'SEMESTER') {
+					// Satu semester spesifik — isi = id_tahun_ajar
+					idYangLolos = [isi];
+					const objTA = dataTahunAjar.find(ta => ta.id_tahun_ajar === isi);
+					filterTeks  = objTA
+						? `${objTA.tahun_ajaran} · Semester ${objTA.semester}`
+						: isi;
+				}
+			}
 
-            // Inisial avatar
-            const inisial = nama.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
-            const filterTeks = taFilter === 'ALL' ? 'Semua Tahun Ajar' : `TA ${taFilter}`;
+			let h = 0, i = 0, s = 0, a = 0;
+
+			dataSemuaAbsen.forEach(row => {
+				if (row.nisn !== 'JSON_DATA') return;
+				// idYangLolos kosong = ALL, lewati filter
+				if (idYangLolos.length > 0 && !idYangLolos.includes(row.id_tahun_ajar)) return;
+				try {
+					const rec = JSON.parse(row.status).find(d => d.nisn == nisn);
+					if (rec) {
+						if (rec.status === 'Hadir') h++;
+						if (rec.status === 'Izin')  i++;
+						if (rec.status === 'Sakit') s++;
+						if (rec.status === 'Alpa')  a++;
+					}
+				} catch(e) {}
+			});
+
+			const total    = h + i + s + a;
+			const pctHadir = total ? Math.round((h / total) * 100) : 0;
+			const warnaPct = pctHadir >= 80 ? '#2ecc71' : pctHadir >= 60 ? '#f39c12' : '#e74c3c';
+
+			const siswaData = dataSemuaSiswa.find(x => x.nisn == nisn);
+			const kelasInfo = siswaData ? dataKelas.find(k => k.id_kelas == siswaData.id_kelas) : null;
+			const namaKelas = kelasInfo ? kelasInfo.nama_kelas : '-';
+			const kelamin   = siswaData?.kelamin || '-';
+
+			// Inisial avatar
+			const inisial = nama.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
 
             Swal.fire({
                 html: `
