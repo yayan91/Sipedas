@@ -1507,12 +1507,12 @@
             <!-- Logo dengan ring berputar -->
             <div class="login-logo-ring">
                 <img id="logo-sekolah"
-                     src="https://via.placeholder.com/100?text=Logo"
-                     alt="Logo Sekolah">
+					 src="https://drive.google.com/thumbnail?id=1jA8C9RLNHSxlumS1NfyIrNTi3VHv7N-u&sz=w200"
+					 alt="Logo Sekolah">
             </div>
 
             <h2>SIPEDAS</h2>
-			<div id="login-nama-sekolah" style="color:#f39c12; font-size:13px; font-weight:700; margin-bottom:4px;">Memuat...</div>
+			<div id="login-nama-sekolah" style="color:#f39c12; font-size:13px; font-weight:700; margin-bottom:4px;">UPT SPF SMP NEGERI 16 MAKASSAR</div>
 			<div class="login-subtitle">Sistem Pencatatan Kehadiran Siswa</div>
 			<div class="login-divider"></div>
 
@@ -1548,7 +1548,7 @@
                 <!-- Logo Sekolah di Sidebar -->
                 <div style="width:65px; height:65px; margin: 0 auto 10px auto; border-radius:50%; overflow:hidden; border: 3px solid rgba(30,60,114,0.15); box-shadow: 0 4px 15px rgba(30,60,114,0.15);">
                     <img id="sidebar-logo"
-                         src="https://lh3.googleusercontent.com/u/0/d/1Wr_uC9C32tjzN19PZXLsk3tyBNrzO1wy"
+						 src="https://drive.google.com/thumbnail?id=1Wr_uC9C32tjzN19PZXLsk3tyBNrzO1wy&sz=w200"
                          onerror="this.style.display='none'; document.getElementById('sidebar-avatar-fallback').style.display='flex';"
                          style="width:100%; height:100%; object-fit:cover;">
                     <!-- Fallback inisial jika logo gagal load -->
@@ -2121,46 +2121,18 @@
         }
 
         window.onload = async function() {
-            if(API_URL === 'URL_WEB_APP_ANDA_DISINI') {
-                Swal.fire('Info', 'Harap masukkan URL Web App Apps Script ke dalam kode terlebih dahulu.', 'info');
-                return;
-            }
+			if(API_URL === 'URL_WEB_APP_ANDA_DISINI') {
+				Swal.fire('Info', 'Harap masukkan URL Web App Apps Script ke dalam kode terlebih dahulu.', 'info');
+				return;
+			}
 
-            // Set default date & tahun footer
 			const today = new Date();
 			const yyyy = today.getFullYear();
 			const mm = String(today.getMonth() + 1).padStart(2, '0');
 			const dd = String(today.getDate()).padStart(2, '0');
 			document.getElementById('inp-tanggal').value = `${yyyy}-${mm}-${dd}`;
 			document.getElementById('footer-tahun').innerText = yyyy;
-
-			// Fetch data sekolah langsung dari server setiap buka halaman
-			showLoader("Menarik Konfigurasi Sekolah...");
-			const res = await fetchBackend('read', { sheetName: 'Sekolah' });
-			hideLoader();
-
-			if (res.success && res.data.length > 0) {
-				dataSekolahGlobal = res.data[0];
-
-				// Tampilkan logo
-				const logoLink = dataSekolahGlobal['logo_kanan'];
-				if (logoLink) {
-					document.getElementById('logo-sekolah').src = logoLink;
-				}
-
-				// Tampilkan nama sekolah
-				const namaSekolah = dataSekolahGlobal['sekolah'];
-				if (namaSekolah) {
-					document.getElementById('login-nama-sekolah').innerText = namaSekolah;
-				} else {
-					document.getElementById('login-nama-sekolah').innerText = '';
-				}
-
-			} else {
-				// Jika gagal ambil data, kosongkan tulisan Memuat...
-				document.getElementById('login-nama-sekolah').innerText = '';
-			}
-        };
+		};
 
         // --- SISTEM LOGIN ---
         async function login() {
@@ -2341,7 +2313,8 @@
             showLoader("Menyiapkan Data Anda...");
             
             // Tarik 4 data sekaligus
-           const [resTA, resKelas, resSiswa, resAbsen] = await Promise.all([
+           const [resSekolah, resTA, resKelas, resSiswa, resAbsen] = await Promise.all([
+				fetchBackend('read', { sheetName: 'Sekolah' }),
 				fetchBackend('read', { sheetName: 'Tahun_Ajar' }),
 				fetchBackend('read', { sheetName: 'Kelas' }),
 				fetchBackend('read', { sheetName: 'Siswa' }),
@@ -2350,10 +2323,11 @@
             
             hideLoader();
 
-            if(resTA.success) dataTahunAjar = resTA.data;
-            if(resKelas.success) dataKelas = resKelas.data;
-            if(resSiswa.success) dataSemuaSiswa = resSiswa.data;
-            if(resAbsen.success) dataSemuaAbsen = resAbsen.data; 
+            if(resSekolah.success && resSekolah.data.length > 0) dataSekolahGlobal = resSekolah.data[0];
+			if(resTA.success) dataTahunAjar = resTA.data;
+			if(resKelas.success) dataKelas = resKelas.data;
+			if(resSiswa.success) dataSemuaSiswa = resSiswa.data;
+			if(resAbsen.success) dataSemuaAbsen = resAbsen.data;
 
             const selTA = document.getElementById('sel-tahun-ajar');
             const dataTA = document.getElementById('data-ta');
